@@ -1,0 +1,15 @@
+stages:
+  - repoclean
+
+repoclean:
+  stage: repoclean
+  only:
+    - schedules
+  variables:
+    CI_PROJECT: $CI_PROJECT_NAME
+    CI_REPO_BOT_TOKEN: $CI_BOT_TOKEN
+    CI_REPO_PATH:      $CI_PROJECT_PATH
+    CI_REPO_REF_NAME:  $CI_COMMIT_REF_NAME
+  trigger:
+    project: ai/repoclean
+    strategy: depend

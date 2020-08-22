@@ -1,0 +1,75 @@
+
+stages:
+  - script-nomerged
+  - script-merged
+
+default:
+  before_script:
+    - git config --global user.email "bot@example.com"
+    - git config --global user.name "$CI_JOB_STAGE"
+    - git remote rm origin
+    - git remote add origin https://bot:$CI_REPO_BOT_TOKEN@$CI_SERVER_HOST/$CI_REPO_PATH
+    - git fetch --all
+    - git checkout ${CI_REPO_REF_NAME}
+    - git reset --hard ${CI_REPO_REF_NAME}
+    - git pull origin ${CI_REPO_REF_NAME}
+
+
+script-nomerged:
+  stage: script-nomerged
+  variables:
+    TIME: "10"
+    TELEGRAM_USER_ID: "-numbers" # telegram group id
+    TELEGRAM_BOT_TOKEN: "token"
+    PROJECT: $CI_PROJECT
+    TEXT1: "last commit <b>15 days</b> ago, <b>not merged</b>"
+    TEXT2: "last commit <b>30 days</b> ago, <b>not merged</b>"
+    URL: "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage"
+  script:
+    - >
+      for branch in `git branch -r --no-merged | grep -v HEAD`; do
+
+      if  echo -e `git show --format="%cr %aE" $branch | head -n 1` \\t$branch | grep -v "bot@example.com" | grep -v origin/master | grep -v origin/pre-master | grep -v origin/dev | grep -v origin/lingtest-bot | grep -e '15 days' &>/dev/null; then
+
+        curl -s --max-time $TIME -d parse_mode=HTML -d "chat_id=$TELEGRAM_USER_ID&disable_web_page_preview=1&text=branch <b>$branch</b> from the project <b>$PROJECT</b> : $TEXT1" $URL
+
+        elif  echo -e `git show --format="%cr %aE" $branch | head -n 1` \\t$branch | grep -v "bot@example.com" | grep -v origin/master | grep -v origin/pre-master | grep -v origin/dev | grep -v origin/lingtest-bot | grep -e '30 days' &>/dev/null; then
+
+        curl -s --max-time $TIME -d parse_mode=HTML -d "chat_id=$TELEGRAM_USER_ID&disable_web_page_preview=1&text=branch <b>$branch</b> from the project <b>$PROJECT</b> : $TEXT2" $URL
+      fi
+
+      done
+
+
+script-merged:
+  stage: script-merged
+  variables:
+    TIME: "10"
+    TELEGRAM_USER_ID: "-numbers"  # telegram group id
+    TELEGRAM_BOT_TOKEN: "token"
+    PROJECT: $CI_PROJECT
+    TEXT1: "deleted in <b>1 day</b>: last commit <b>7 days ago, merged</b>"
+    TEXT3: "deleted"
+    URL: "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage"
+  script:
+    - >
+      for branch in `git branch -r --merged | grep -v HEAD`; do
+      if  echo -e `git show --format="%cr %aE" $branch | head -n 1` \\t$branch | grep -v "bot@example.com" | grep -v origin/master | grep -v origin/pre-master | grep -v origin/dev | grep -v origin/lingtest-bot | grep -e '7 days' &>/dev/null; then
+
+        curl -s --max-time $TIME -d parse_mode=HTML -d "chat_id=$TELEGRAM_USER_ID&disable_web_page_preview=1&text=branch <b>$branch</b> from the project <b>$PROJECT</b> $TEXT1" $URL
+
+      fi
+
+      done
+
+      for branch in `git branch -r --merged | grep -v HEAD`; do
+
+      if  echo -e `git show --format="%cr %aE" $branch | head -n 1` \\t$branch | grep -v "bot@example.com" | grep -v origin/master | grep -v origin/pre-master | grep -v origin/dev | grep -v origin/lingtest-bot | grep -e '8 days' &>/dev/null; then
+
+           echo $branch | grep 'origin/' | sed 's/.*origin\///' |  xargs -n 1 git push origin --delete
+
+           curl -s --max-time $TIME -d parse_mode=HTML -d "chat_id=$TELEGRAM_USER_ID&disable_web_page_preview=1&text=branch <b>$branch</b> from the project <b>$PROJECT</b> $TEXT3" $URL
+      fi
+
+      done
+
